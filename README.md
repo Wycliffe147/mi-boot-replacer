@@ -25,8 +25,55 @@ A simple module designed exclusively for tablet devices, replacing the boot anim
 > If you get a blank screen after adding your own animation, it’s likely because the ZIP file wasn’t compressed right. Use "store-only" mode (no compression) when creating the ZIP.
 
 ## To-Dos
-1. Add a script (Python) to automate the generation of different orientation/resolution animation ZIPs
+1. ~~Add a script (Python) to automate the generation of different orientation/resolution animation ZIPs~~ (Done)
 2. Auto detect and select path for corresponding models
+
+## Zip Bootanimation Script (Initial Version)
+> [!NOTE]
+> This script is an **initial version** and may be updated in the future with more features and improvements.
+
+A Python script to automate the creation of bootanimation ZIP files in store-only mode (no compression).
+
+### Requirements
+- Python 3.9+
+
+### Usage
+```bash
+python zip_bootanimation.py <path_to_directory>
+```
+
+### How It Works
+1. Place your bootanimation folders in a directory (e.g., `bootanimation/`, `bootanimation01/`, `bootanimation02/`, etc.)
+2. Each folder **must** contain:
+   - A `part0/` folder (with your animation frames)
+   - A `desc.txt` file (animation descriptor)
+3. Run the script with the path to your directory
+4. The script will create `.zip` files for each valid bootanimation folder
+
+### Example
+```
+my_animations/
+├── bootanimation/
+│   ├── desc.txt
+│   └── part0/
+│       ├── 00.png
+│       └── 01.png
+├── bootanimation01/
+│   ├── desc.txt
+│   └── part0/
+│       └── 00.png
+```
+
+Run:
+```bash
+python zip_bootanimation.py my_animations
+```
+
+Output:
+```
+bootanimation.zip
+bootanimation01.zip
+```
 
 ## Disclaimer
 **Flashing this module may cause your device to bootloop, a bootloop saver module is highly recommended. I am not responsible for any damages caused to your device or data by using this module. Use at your own risk.**

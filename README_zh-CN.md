@@ -23,8 +23,55 @@
 > 如果您在添加自己的动画主题后看到空白一片，则说明您没有正确压缩它，创建时请使用仅存储模式进行压缩（无压缩）。
 
 ## 待办事项
-1. 添加脚本（Python）以自动生成不同方向的动画 ZIP 文件
+1. ~~添加脚本（Python）以自动生成不同方向的动画 ZIP 文件~~（完成）
 2. 自动检测并选择相应的路径
+
+## 压缩开机动画脚本（初始版本）
+> [!NOTE]
+> 此脚本是**初始版本**，未来可能会更新更多功能和改进。
+
+一个 Python 脚本，用于自动创建仅存储模式（无压缩）的开机动画 ZIP 文件。
+
+### 要求
+- Python 3.9+
+
+### 使用方法
+```bash
+python zip_bootanimation.py <目录路径>
+```
+
+### 工作原理
+1. 将开机动画文件夹放在一个目录中（例如：`bootanimation/`、`bootanimation01/`、`bootanimation02/` 等）
+2. 每个文件夹**必须**包含：
+   - `part0/` 文件夹（包含动画帧）
+   - `desc.txt` 文件（动画描述符）
+3. 使用目录路径运行脚本
+4. 脚本将为每个有效的开机动画文件夹创建 `.zip` 文件
+
+### 示例
+```
+my_animations/
+├── bootanimation/
+│   ├── desc.txt
+│   └── part0/
+│       ├── 00.png
+│       └── 01.png
+├── bootanimation01/
+│   ├── desc.txt
+│   └── part0/
+│       └── 00.png
+```
+
+运行：
+```bash
+python zip_bootanimation.py my_animations
+```
+
+输出：
+```
+bootanimation.zip
+bootanimation01.zip
+```
 
 ## 免责声明
 **刷写此模块可能会导致您的设备进入引导循环，强烈建议使用引导循环保护模块。对于使用此模块对您的设备或数据造成的任何损害，我概不负责。使用风险自负。**
