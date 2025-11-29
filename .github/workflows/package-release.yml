@@ -92,6 +92,17 @@ jobs:
           RELEASE_TYPE="${{ github.event.inputs.release_type }}"
           ZIP_NAME="${{ steps.create_zip.outputs.zip_name }}"
 
+          # Get the previous release tag for changelog link
+          PREV_TAG=$(gh release list --repo ${{ github.repository }} --exclude-drafts --limit 1 --json tagName -q '.[0].tagName' 2>/dev/null || echo "")
+
+          # Build full release notes with changelog link
+          if [ -n "$PREV_TAG" ]; then
+            CHANGELOG_URL="https://github.com/${{ github.repository }}/compare/${PREV_TAG}...${TAG}"
+            FULL_BODY=$(printf "%s\n\n---\n**Full Changelog**: %s" "$BODY" "$CHANGELOG_URL")
+          else
+            FULL_BODY="$BODY"
+          fi
+
           # Build release flags
           FLAGS=""
           if [ "$RELEASE_TYPE" = "pre-release" ]; then
@@ -104,11 +115,14 @@ jobs:
           echo "  Tag: $TAG"
           echo "  Title: $TITLE"
           echo "  Type: $RELEASE_TYPE"
+          if [ -n "$PREV_TAG" ]; then
+            echo "  Previous tag: $PREV_TAG"
+          fi
 
           # Create the release with the ZIP attached
           gh release create "$TAG" "$ZIP_NAME" \
             --title "$TITLE" \
-            --notes "$BODY" \
+            --notes "$FULL_BODY" \
             $FLAGS
 
           echo "Release created successfully!"
