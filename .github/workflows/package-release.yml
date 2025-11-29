@@ -1,7 +1,7 @@
-name: "Create Release"
+name: "NodeJs with Release"
 
 # This workflow is for maintainers/developers only
-# It packages the module and creates a GitHub release
+# It packages the module, creates a GitHub release, and updates update.json
 
 run-name: "Release: v${{ inputs.version }} (${{ inputs.release_type }})"
 
@@ -128,6 +128,61 @@ jobs:
           echo "Release created successfully!"
           echo "release_url=https://github.com/${{ github.repository }}/releases/tag/$TAG" >> $GITHUB_OUTPUT
 
+      - name: Set up Node.js
+        if: ${{ github.event.inputs.release_type == 'release' }}
+        uses: actions/setup-node@v3
+        with:
+          node-version: '18'
+
+      - name: Update update.json
+        if: ${{ github.event.inputs.release_type == 'release' }}
+        run: |
+          set -e
+          VERSION="v${{ github.event.inputs.version }}"
+          VERSION_CODE=$(echo "$VERSION" | tr -dc '0-9')
+
+          if [ -z "$VERSION_CODE" ] || ! [[ "$VERSION_CODE" =~ ^[0-9]+$ ]]; then
+            echo "Error: Invalid version code: $VERSION_CODE"
+            exit 1
+          fi
+
+          VERSION_NO_V="${{ github.event.inputs.version }}"
+          ZIP_URL="https://github.com/${{ github.repository }}/releases/latest/download/mipad-custom-boot-${VERSION_NO_V}.zip"
+          CHANGELOG_URL="https://raw.githubusercontent.com/${{ github.repository }}/main/README.md"
+
+          echo "Updating update.json..."
+          echo "  Version: $VERSION"
+          echo "  Version Code: $VERSION_CODE"
+          echo "  ZIP URL: $ZIP_URL"
+
+          jq -n \
+            --arg version "$VERSION" \
+            --argjson versionCode "$VERSION_CODE" \
+            --arg zipUrl "$ZIP_URL" \
+            --arg changelog "$CHANGELOG_URL" \
+            '{
+              version: $version,
+              versionCode: $versionCode,
+              zipUrl: $zipUrl,
+              changelog: $changelog
+            }' > update.json
+
+          echo ""
+          echo "Updated update.json:"
+          cat update.json
+
+      - name: Commit and push update.json
+        if: ${{ github.event.inputs.release_type == 'release' }}
+        run: |
+          set -e
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+          git add update.json
+          git commit -m "chore: update JSON for release v${{ github.event.inputs.version }}"
+          git push origin main
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
       - name: Generate build summary
         run: |
           VERSION="${{ github.event.inputs.version }}"
@@ -149,8 +204,16 @@ jobs:
           ## Links
 
           - [View Release](${{ steps.create_release.outputs.release_url }})
-
-          ## Next Steps
-
-          Update \`update.json\` with the new version info.
           EOF
+
+          if [ "$RELEASE_TYPE" = "release" ]; then
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "## Auto-Updated" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "- \`update.json\` has been automatically updated and pushed to main" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "## Note" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "- \`update.json\` was NOT updated (only updated for full releases)" >> $GITHUB_STEP_SUMMARY
+          fi
