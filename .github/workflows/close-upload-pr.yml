@@ -1,0 +1,55 @@
+name: Auto Close Upload PRs
+
+# Automatically close PRs that modify the upload folder
+# The upload folder is for personal use only after forking
+
+on:
+  pull_request_target:
+    paths:
+      - 'upload/**'
+
+jobs:
+  close-pr:
+    runs-on: ubuntu-latest
+    permissions:
+      pull-requests: write
+
+    steps:
+      - name: Close PR
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const prNumber = context.payload.pull_request.number;
+            const prAuthor = context.payload.pull_request.user.login;
+
+            // Add comment explaining why
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: prNumber,
+              body: `Hi @${prAuthor},
+
+            This PR has been automatically closed because it modifies the \`upload/\` folder.
+
+            The \`upload/\` folder is intended for **personal use only** in your own fork. It should not be merged into the main repository.
+
+            **How to use the upload folder correctly:**
+            1. Fork this repository
+            2. Add your bootanimation files to the \`upload/\` folder in your fork
+            3. Run the GitHub Actions workflow in your fork
+            4. Download the built module from your fork's Actions artifacts
+
+            If you have a different contribution (bug fix, new template, etc.), please open a new PR without changes to the \`upload/\` folder.
+
+            Thank you for your understanding!`
+            });
+
+            // Close the PR
+            await github.rest.pulls.update({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              pull_number: prNumber,
+              state: 'closed'
+            });
+
+            console.log(`Closed PR #${prNumber} - modifies upload folder`);

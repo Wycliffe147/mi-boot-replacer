@@ -1,14 +1,24 @@
 name: Build Custom Boot Animation Module
 
 # This workflow allows users to:
-# 1. Fork this repo or create a branch
-# 2. Add bootanimation.zip files to the 'bootanimations' folder OR provide URLs
+# 1. Fork this repo
+# 2. Choose a template OR add custom bootanimation.zip files to the 'upload' folder
 # 3. Run this workflow
 # 4. Download the ready-to-flash module
 
 on:
   workflow_dispatch:
     inputs:
+      source:
+        description: 'Bootanimation source'
+        required: true
+        default: 'upload'
+        type: choice
+        options:
+          - 'upload'
+          - 'template: liuqin/HyperOS'
+          - 'template: liuqin/MIUI'
+          - 'template: liuqin/MIUI_inverted'
       target_location:
         description: 'Where to place bootanimation files in the module'
         required: true
@@ -19,16 +29,11 @@ on:
           - 'system/media'
           - 'system/system_ext/media'
           - 'system/product/media/theme/default'
-      bootanimation_urls:
-        description: 'Direct URLs to bootanimation.zip files (comma-separated). Leave empty to use files from bootanimations folder.'
-        required: false
-        default: ''
-        type: string
 
-  # Also trigger when bootanimation files are pushed
+  # Also trigger when files are pushed to upload folder
   push:
     paths:
-      - 'bootanimations/**'
+      - 'upload/**'
     branches:
       - main
       - master
@@ -96,108 +101,66 @@ jobs:
             cat ../build/module/module.prop
           fi
 
-      - name: Create bootanimations directory
-        run: mkdir -p bootanimations
-
-      - name: Download bootanimation files from URLs
-        if: ${{ github.event.inputs.bootanimation_urls != '' }}
+      - name: Prepare bootanimation files
+        id: prepare_files
         run: |
-          IFS=',' read -ra URLS <<< "${{ github.event.inputs.bootanimation_urls }}"
+          mkdir -p bootanimations
 
-          count=0
-          for url in "${URLS[@]}"; do
-            # Trim whitespace
-            url=$(echo "$url" | xargs)
+          SOURCE="${{ github.event.inputs.source }}"
 
-            if [ -n "$url" ]; then
-              if [ $count -eq 0 ]; then
-                filename="bootanimation.zip"
-              else
-                filename="bootanimation$(printf '%02d' $count).zip"
-              fi
+          # Default to upload if not specified (e.g., push trigger)
+          if [ -z "$SOURCE" ]; then
+            SOURCE="upload"
+          fi
 
-              echo "Downloading: $url -> $filename"
-              curl -L -o "bootanimations/$filename" "$url" || {
-                echo "Failed to download: $url"
-                exit 1
-              }
+          echo "Source: $SOURCE"
 
-              count=$((count + 1))
+          if [[ "$SOURCE" == template:* ]]; then
+            # Extract template path (remove "template: " prefix)
+            TEMPLATE_PATH="${SOURCE#template: }"
+            TEMPLATE_DIR="templates/$TEMPLATE_PATH"
+
+            echo "Using template: $TEMPLATE_PATH"
+
+            if [ ! -d "$TEMPLATE_DIR" ]; then
+              echo "Error: Template directory not found: $TEMPLATE_DIR"
+              exit 1
             fi
-          done
 
-          echo "Downloaded $count bootanimation file(s)"
+            # Copy template files to bootanimations
+            cp "$TEMPLATE_DIR"/*.zip bootanimations/ 2>/dev/null || {
+              echo "Error: No bootanimation files found in template: $TEMPLATE_DIR"
+              exit 1
+            }
 
-      - name: Check for bootanimation files
-        id: check_files
-        run: |
-          # Count bootanimation files
-          count=$(find bootanimations -maxdepth 1 -name "*.zip" -type f 2>/dev/null | wc -l)
-
-          echo "Found $count bootanimation file(s) in bootanimations directory"
-          echo "count=$count" >> $GITHUB_OUTPUT
-
-          if [ "$count" -gt 0 ]; then
-            echo "files_found=true" >> $GITHUB_OUTPUT
-            echo ""
-            echo "Files found:"
-            ls -la bootanimations/*.zip
+            echo "Copied template files:"
+            ls -la bootanimations/
           else
-            echo "files_found=false" >> $GITHUB_OUTPUT
-            echo ""
-            echo "Warning: No bootanimation files found!"
-            echo ""
-            echo "To use this workflow:"
-            echo "1. Add your bootanimation.zip files to the 'bootanimations' folder"
-            echo "2. Commit and push the changes"
-            echo "3. Run this workflow again"
-            echo ""
-            echo "OR provide direct URLs in the workflow inputs."
-            echo ""
-            echo "File naming convention:"
-            echo "  - bootanimation.zip (main boot animation)"
-            echo "  - bootanimation01.zip (alternative 1)"
-            echo "  - bootanimation02.zip (alternative 2)"
-            echo "  - etc."
-            exit 1
-          fi
+            # Use upload folder
+            echo "Using upload folder"
 
-      - name: Prepare module structure
-        run: |
-          echo "Preparing module structure..."
-
-          # Determine target location (use input or default)
-          TARGET_LOCATION="${{ github.event.inputs.target_location }}"
-          if [ -z "$TARGET_LOCATION" ]; then
-            TARGET_LOCATION="system/product/media"
-          fi
-
-          # Create target directory
-          TARGET_DIR="build/module/$TARGET_LOCATION"
-          mkdir -p "$TARGET_DIR"
-
-          # Clean any existing bootanimation files from the downloaded module
-          find build/module -name "bootanimation*.zip" -type f -delete 2>/dev/null || true
-
-          echo "Target location: $TARGET_LOCATION"
-          echo "target_dir=$TARGET_DIR" >> $GITHUB_ENV
-          echo "target_location=$TARGET_LOCATION" >> $GITHUB_ENV
-
-      - name: Copy bootanimation files
-        run: |
-          echo "Copying bootanimation files..."
-
-          for file in bootanimations/*.zip; do
-            if [ -f "$file" ]; then
-              filename=$(basename "$file")
-              echo "  → $filename"
-              cp "$file" "${{ env.target_dir }}/"
+            if [ -d "upload" ] && ls upload/*.zip 1> /dev/null 2>&1; then
+              cp upload/*.zip bootanimations/
+              echo "Copied files from upload folder:"
+              ls -la bootanimations/
+            else
+              echo "Error: No bootanimation files found in upload folder!"
+              echo ""
+              echo "To use this workflow:"
+              echo "1. Add your bootanimation.zip files to the 'upload' folder"
+              echo "2. Commit and push the changes"
+              echo "3. Run this workflow again"
+              echo ""
+              echo "OR select a template from the dropdown."
+              echo ""
+              echo "File naming convention:"
+              echo "  - bootanimation.zip (main boot animation)"
+              echo "  - bootanimation01.zip (alternative 1)"
+              echo "  - bootanimation02.zip (alternative 2)"
+              echo "  - etc."
+              exit 1
             fi
-          done
-
-          echo ""
-          echo "Files copied to module:"
-          ls -la "${{ env.target_dir }}/"
+          fi
 
       - name: Validate bootanimation files
         run: |
@@ -207,7 +170,7 @@ jobs:
           errors=0
           warnings=0
 
-          for file in "${{ env.target_dir }}"/*.zip; do
+          for file in bootanimations/*.zip; do
             if [ -f "$file" ]; then
               filename=$(basename "$file")
               filesize=$(du -h "$file" | cut -f1)
@@ -251,6 +214,43 @@ jobs:
           else
             echo "All files validated successfully"
           fi
+
+      - name: Prepare module structure
+        run: |
+          echo "Preparing module structure..."
+
+          # Determine target location (use input or default)
+          TARGET_LOCATION="${{ github.event.inputs.target_location }}"
+          if [ -z "$TARGET_LOCATION" ]; then
+            TARGET_LOCATION="system/product/media"
+          fi
+
+          # Create target directory
+          TARGET_DIR="build/module/$TARGET_LOCATION"
+          mkdir -p "$TARGET_DIR"
+
+          # Clean any existing bootanimation files from the downloaded module
+          find build/module -name "bootanimation*.zip" -type f -delete 2>/dev/null || true
+
+          echo "Target location: $TARGET_LOCATION"
+          echo "target_dir=$TARGET_DIR" >> $GITHUB_ENV
+          echo "target_location=$TARGET_LOCATION" >> $GITHUB_ENV
+
+      - name: Copy bootanimation files
+        run: |
+          echo "Copying bootanimation files..."
+
+          for file in bootanimations/*.zip; do
+            if [ -f "$file" ]; then
+              filename=$(basename "$file")
+              echo "  -> $filename"
+              cp "$file" "${{ env.target_dir }}/"
+            fi
+          done
+
+          echo ""
+          echo "Files copied to module:"
+          ls -la "${{ env.target_dir }}/"
 
       - name: Get module info
         id: module_info
@@ -311,20 +311,26 @@ jobs:
 
       - name: Generate build summary
         run: |
-          cat << 'EOF' >> $GITHUB_STEP_SUMMARY
+          SOURCE="${{ github.event.inputs.source }}"
+          if [ -z "$SOURCE" ]; then
+            SOURCE="upload"
+          fi
+
+          cat << EOF >> $GITHUB_STEP_SUMMARY
           # Module Built Successfully
 
           ## Module Details
 
           | Property | Value |
           |----------|-------|
-          | **File** | `${{ steps.create_zip.outputs.zip_name }}` |
+          | **File** | \`${{ steps.create_zip.outputs.zip_name }}\` |
           | **Size** | ${{ steps.create_zip.outputs.zip_size }} |
           | **Base Release** | ${{ steps.download_release.outputs.tag }} |
+          | **Source** | $SOURCE |
           | **Name** | ${{ steps.module_info.outputs.module_name }} |
           | **Version** | ${{ steps.module_info.outputs.module_version }} |
           | **Author** | ${{ steps.module_info.outputs.module_author }} |
-          | **Target** | `${{ env.target_location }}` |
+          | **Target** | \`${{ env.target_location }}\` |
 
           ## Included Bootanimations
 
