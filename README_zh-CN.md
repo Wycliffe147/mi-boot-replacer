@@ -56,23 +56,36 @@
 
 您可以使用 GitHub Actions 构建自定义开机动画模块，无需任何本地工具！工作流程会自动下载最新版本作为基础。
 
-### 方法一：Fork 并上传文件
+### 方法一：使用模板
 
 1. **Fork** 此仓库
-2. 将您的 `bootanimation.zip` 文件添加到 `bootanimations/` 文件夹
+2. 前往 **Actions** → **"Build Custom Boot Animation Module"**
+3. 点击 **"Run workflow"**
+4. 从下拉菜单选择一个**模板**（例如 `template: liuqin/HyperOS`）
+5. 选择**目标位置**
+6. 从 **Artifacts** 下载构建好的模块
+
+### 方法二：上传自定义文件
+
+1. **Fork** 此仓库
+2. 将您的 `bootanimation.zip` 文件添加到 `upload/` 文件夹
 3. 提交并推送您的更改
 4. 前往 **Actions** → **"Build Custom Boot Animation Module"**
 5. 点击 **"Run workflow"**
-6. 选择开机动画文件的**目标位置**
-7. 从 **Artifacts** 下载构建好的模块
+6. 选择 `upload` 作为来源
+7. 选择**目标位置**
+8. 从 **Artifacts** 下载构建好的模块
 
-### 方法二：使用直接链接
+> [!WARNING]
+> `upload/` 文件夹仅供在您自己的 Fork 中个人使用。请勿提交包含此文件夹更改的 Pull Request，否则将被自动关闭。
 
-1. 前往 **Actions** → **"Build Custom Boot Animation Module"**
-2. 点击 **"Run workflow"**
-3. 选择**目标位置**
-4. 输入开机动画文件的直接下载链接（多个链接用逗号分隔）
-5. 从 **Artifacts** 下载构建好的模块
+### 可用模板
+
+| 模板 | 描述 |
+|------|------|
+| `liuqin/HyperOS` | 小米平板 6 Pro 的 HyperOS 风格 |
+| `liuqin/MIUI` | 小米平板 6 Pro 的 MIUI 风格 |
+| `liuqin/MIUI_inverted` | 小米平板 6 Pro 的 MIUI 反色风格 |
 
 ### 可用目标位置
 

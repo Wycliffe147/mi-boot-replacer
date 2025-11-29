@@ -56,23 +56,36 @@ A simple module designed exclusively for tablet devices, replacing the boot anim
 
 You can use GitHub Actions to build a custom boot animation module without any local tools! The workflow automatically downloads the latest release as a base.
 
-### Method 1: Fork and Upload Files
+### Method 1: Use a Template
 
 1. **Fork** this repository
-2. Add your `bootanimation.zip` files to the `bootanimations/` folder
+2. Go to **Actions** → **"Build Custom Boot Animation Module"**
+3. Click **"Run workflow"**
+4. Select a **template** from the dropdown (e.g., `template: liuqin/HyperOS`)
+5. Select the **Target location**
+6. Download the built module from **Artifacts**
+
+### Method 2: Upload Custom Files
+
+1. **Fork** this repository
+2. Add your `bootanimation.zip` files to the `upload/` folder
 3. Commit and push your changes
 4. Go to **Actions** → **"Build Custom Boot Animation Module"**
 5. Click **"Run workflow"**
-6. Select the **Target location** for your bootanimation files
-7. Download the built module from **Artifacts**
+6. Select `upload` as the source
+7. Select the **Target location**
+8. Download the built module from **Artifacts**
 
-### Method 2: Use Direct URLs
+> [!WARNING]
+> The `upload/` folder is for personal use in your fork only. Do not submit pull requests with changes to this folder - they will be automatically closed.
 
-1. Go to **Actions** → **"Build Custom Boot Animation Module"**
-2. Click **"Run workflow"**
-3. Select the **Target location**
-4. Enter direct download URLs to your bootanimation files (comma-separated)
-5. Download the built module from **Artifacts**
+### Available Templates
+
+| Template | Description |
+|----------|-------------|
+| `liuqin/HyperOS` | HyperOS style for Xiaomi Pad 6 Pro |
+| `liuqin/MIUI` | MIUI style for Xiaomi Pad 6 Pro |
+| `liuqin/MIUI_inverted` | MIUI inverted style for Xiaomi Pad 6 Pro |
 
 ### Available Target Locations
 
