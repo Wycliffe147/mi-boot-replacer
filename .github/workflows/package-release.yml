@@ -1,12 +1,11 @@
 name: "NodeJs with Release"
 
 # This workflow is for maintainers/developers only
-# It packages the module, creates a GitHub release, and updates update.json
 #
 # Before running:
 # 1. Update module/module.prop with the new version
-# 2. Edit RELEASE_NOTES.md with your changelog
-# 3. Run this workflow
+# 2. Edit RELEASE_NOTES.md
+# 3. Run
 
 run-name: "Release: v${{ inputs.version }} (${{ inputs.release_type }})"
 
