@@ -14,7 +14,7 @@
 ### Supported Paths
 
 The module now supports these boot animation locations:
-- `/product/media` (default, most common)
+- `/system/product/media` (default, most common)
 - `/system/media` (legacy)
 - `/system_ext/media`
-- `/product/media/theme/default`
+- `/system/product/media/theme/default`

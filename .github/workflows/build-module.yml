@@ -1,6 +1,5 @@
 name: Build Custom Boot Animation Module
 
-# This workflow allows users to:
 # 1. Fork this repo
 # 2. Choose a device template OR add custom bootanimation.zip files to the 'upload' folder
 # 3. Run this workflow manually
