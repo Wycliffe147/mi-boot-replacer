@@ -235,8 +235,13 @@ jobs:
           # Determine target location (use input or default)
           TARGET_LOCATION="${{ github.event.inputs.target_location }}"
           if [ -z "$TARGET_LOCATION" ]; then
-            TARGET_LOCATION="system/product/media"
+            TARGET_LOCATION="/product/media"
           fi
+
+          MODULE_TARGET="system$TARGET_LOCATION"
+
+          echo "Target location: $TARGET_LOCATION"
+          echo "Module path: $MODULE_TARGET"
 
           # Remove all existing media directories to avoid conflicts
           # Only keep the one we're targeting
@@ -244,7 +249,7 @@ jobs:
 
           MEDIA_DIRS=(
             "build/module/system/product/media"
-            "build/module/system/media"
+            "build/module/system/system/media"
             "build/module/system/system_ext/media"
             "build/module/system/product/media/theme/default"
           )
@@ -252,7 +257,7 @@ jobs:
           for dir in "${MEDIA_DIRS[@]}"; do
             if [ -d "$dir" ]; then
               # Check if this is the target or a parent of the target
-              TARGET_DIR_FULL="build/module/$TARGET_LOCATION"
+              TARGET_DIR_FULL="build/module/$MODULE_TARGET"
               if [[ "$TARGET_DIR_FULL" != "$dir"* ]]; then
                 echo "  Removing: $dir"
                 rm -rf "$dir"
@@ -260,8 +265,8 @@ jobs:
             fi
           done
 
-          # Create target directory
-          TARGET_DIR="build/module/$TARGET_LOCATION"
+          # Create target directory with system/ prefix for Magisk
+          TARGET_DIR="build/module/$MODULE_TARGET"
           mkdir -p "$TARGET_DIR"
 
           # Clean any existing bootanimation files from the downloaded module
