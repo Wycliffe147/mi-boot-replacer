@@ -3,7 +3,9 @@ SKIPUNZIP=0
 # Detect API and architecture
 api_level_arch_detect
 
+# Default boot animation location (will be set by user prompt)
 BOOT_DIR="/product/media"
+BOOT_DIR_FROM_MODULE=false
 BACKUP_DIR="/data/adb/boot-backups"
 MODULE_ID=$(grep_prop id "$MODPATH/module.prop")
 MODULE_VER_CODE=$(($(grep_prop versionCode "$MODPATH/module.prop") + 0))
@@ -48,6 +50,88 @@ key_check() {
     key_status=$(echo "$key_check" | awk '{ print $4 }')
     if [[ "$key_event" == *"KEY_"* && "$key_status" == "UP" ]]; then
       keycheck="$key_event"
+      break
+    fi
+  done
+}
+
+# Auto-detect boot animation location from module structure
+detect_boot_dir() {
+  # First, check if bootanimation files exist in the module's system folder
+  # This detects the path chosen during GitHub Actions build
+  local module_boot_dir=""
+
+  # Search for bootanimation.zip in module's system directory
+  if [ -f "$MODPATH/system/product/media/bootanimation.zip" ]; then
+    module_boot_dir="/product/media"
+  elif [ -f "$MODPATH/system/media/bootanimation.zip" ]; then
+    module_boot_dir="/system/media"
+  elif [ -f "$MODPATH/system/system_ext/media/bootanimation.zip" ]; then
+    module_boot_dir="/system_ext/media"
+  elif [ -f "$MODPATH/system/product/media/theme/default/bootanimation.zip" ]; then
+    module_boot_dir="/product/media/theme/default"
+  fi
+
+  if [ -n "$module_boot_dir" ]; then
+    # Module has a pre-configured path from build
+    BOOT_DIR="$module_boot_dir"
+    BOOT_DIR_FROM_MODULE=true
+  else
+    # Fallback: detect from device's existing bootanimation
+    BOOT_DIR_FROM_MODULE=false
+    if [ -f "/product/media/bootanimation.zip" ]; then
+      BOOT_DIR="/product/media"
+    elif [ -f "/system/media/bootanimation.zip" ]; then
+      BOOT_DIR="/system/media"
+    elif [ -f "/system/product/media/bootanimation.zip" ]; then
+      BOOT_DIR="/system/product/media"
+    elif [ -f "/system_ext/media/bootanimation.zip" ]; then
+      BOOT_DIR="/system_ext/media"
+    elif [ -f "/product/media/theme/default/bootanimation.zip" ]; then
+      BOOT_DIR="/product/media/theme/default"
+    else
+      BOOT_DIR="/product/media"
+    fi
+  fi
+}
+
+# Let user select boot animation location
+select_boot_dir() {
+  ui_print "*********************************************"
+  ui_print "- Select boot animation location:"
+  ui_print "  Volume [+]: Next option"
+  ui_print "  Volume [-]: Confirm selection"
+  ui_print "*********************************************"
+
+  # Available locations
+  local locations=("/product/media" "/system/media" "/system_ext/media" "/product/media/theme/default")
+  local descriptions=("Product Media (Default)" "System Media (Legacy)" "System Ext Media" "Theme Default")
+  local current_index=0
+  local total=${#locations[@]}
+
+  # Find if detected location matches any option
+  for i in "${!locations[@]}"; do
+    if [ "${locations[$i]}" = "$BOOT_DIR" ]; then
+      current_index=$i
+      break
+    fi
+  done
+
+  while true; do
+    ui_print ""
+    ui_print "  >> ${descriptions[$current_index]}"
+    ui_print "     Path: ${locations[$current_index]}"
+
+    key_check
+
+    if [[ "$keycheck" == "KEY_VOLUMEUP" ]]; then
+      # Next option
+      current_index=$(( (current_index + 1) % total ))
+    else
+      # Confirm selection
+      BOOT_DIR="${locations[$current_index]}"
+      ui_print ""
+      ui_print "- Selected: $BOOT_DIR"
       break
     fi
   done
@@ -120,6 +204,29 @@ ui_print "  Brand: $(getprop ro.product.brand)"
 ui_print "  Model: $(getprop ro.product.model)"
 ui_print "  Android: $(getprop ro.build.version.release)"
 ui_print "*********************************************"
+
+# Auto-detect and let user confirm/change boot animation location
+detect_boot_dir
+
+if [ "$BOOT_DIR_FROM_MODULE" = true ]; then
+  ui_print "- Boot animation path (from module): $BOOT_DIR"
+  ui_print "- Change location? (Not recommended)"
+  ui_print "  Volume [+]: Change location"
+  ui_print "  Volume [-]: Use module path (Recommended)"
+else
+  ui_print "- Detected boot animation location: $BOOT_DIR"
+  ui_print "- (May not match module's configured path, please verify before proceeding)"
+  ui_print "- Do you want to change the location?"
+  ui_print "  Volume [+]: Change location"
+  ui_print "  Volume [-]: Use detected path"
+fi
+ui_print "*********************************************"
+key_check
+if [[ "$keycheck" == "KEY_VOLUMEUP" ]]; then
+  select_boot_dir
+else
+  ui_print "- Using: $BOOT_DIR"
+fi
 
 # Create backup if not found or empty
 backup_exists=false

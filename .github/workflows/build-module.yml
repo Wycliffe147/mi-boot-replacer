@@ -1,0 +1,363 @@
+name: Build Custom Boot Animation Module
+
+# This workflow allows users to:
+# 1. Fork this repo or create a branch
+# 2. Add bootanimation.zip files to the 'bootanimations' folder OR provide URLs
+# 3. Run this workflow
+# 4. Download the ready-to-flash module
+
+on:
+  workflow_dispatch:
+    inputs:
+      target_location:
+        description: 'Where to place bootanimation files in the module'
+        required: true
+        default: 'system/product/media'
+        type: choice
+        options:
+          - 'system/product/media'
+          - 'system/media'
+          - 'system/system_ext/media'
+          - 'system/product/media/theme/default'
+      bootanimation_urls:
+        description: 'Direct URLs to bootanimation.zip files (comma-separated). Leave empty to use files from bootanimations folder.'
+        required: false
+        default: ''
+        type: string
+
+  # Also trigger when bootanimation files are pushed
+  push:
+    paths:
+      - 'bootanimations/**'
+    branches:
+      - main
+      - master
+
+jobs:
+  build-module:
+    runs-on: ubuntu-latest
+    name: Build Boot Animation Module
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - name: Download latest release module
+        id: download_release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          echo "📦 Fetching latest release..."
+
+          # Get the latest non-prerelease release
+          RELEASE_INFO=$(gh release list --repo ${{ github.repository }} --exclude-drafts --exclude-pre-releases --limit 1 --json tagName,name)
+
+          if [ -z "$RELEASE_INFO" ] || [ "$RELEASE_INFO" = "[]" ]; then
+            echo "❌ No releases found!"
+            echo "Please create a release first."
+            exit 1
+          fi
+
+          TAG_NAME=$(echo "$RELEASE_INFO" | jq -r '.[0].tagName')
+          RELEASE_NAME=$(echo "$RELEASE_INFO" | jq -r '.[0].name')
+
+          echo "Found release: $RELEASE_NAME ($TAG_NAME)"
+          echo "tag=$TAG_NAME" >> $GITHUB_OUTPUT
+
+          # Download the release assets
+          mkdir -p release_download
+          cd release_download
+
+          gh release download "$TAG_NAME" --repo ${{ github.repository }} --pattern "*.zip"
+
+          # Find the module zip
+          MODULE_ZIP=$(ls *.zip 2>/dev/null | head -n 1)
+
+          if [ -z "$MODULE_ZIP" ]; then
+            echo "❌ No ZIP file found in release!"
+            exit 1
+          fi
+
+          echo "Downloaded: $MODULE_ZIP"
+          echo "module_zip=$MODULE_ZIP" >> $GITHUB_OUTPUT
+
+          # Extract the module
+          mkdir -p ../build/module
+          unzip -o "$MODULE_ZIP" -d ../build/module
+
+          echo "✅ Module extracted successfully"
+
+          # Show module info
+          if [ -f "../build/module/module.prop" ]; then
+            echo ""
+            echo "Module info:"
+            cat ../build/module/module.prop
+          fi
+
+      - name: Create bootanimations directory
+        run: mkdir -p bootanimations
+
+      - name: Download bootanimation files from URLs
+        if: ${{ github.event.inputs.bootanimation_urls != '' }}
+        run: |
+          IFS=',' read -ra URLS <<< "${{ github.event.inputs.bootanimation_urls }}"
+
+          count=0
+          for url in "${URLS[@]}"; do
+            # Trim whitespace
+            url=$(echo "$url" | xargs)
+
+            if [ -n "$url" ]; then
+              if [ $count -eq 0 ]; then
+                filename="bootanimation.zip"
+              else
+                filename="bootanimation$(printf '%02d' $count).zip"
+              fi
+
+              echo "Downloading: $url -> $filename"
+              curl -L -o "bootanimations/$filename" "$url" || {
+                echo "Failed to download: $url"
+                exit 1
+              }
+
+              count=$((count + 1))
+            fi
+          done
+
+          echo "Downloaded $count bootanimation file(s)"
+
+      - name: Check for bootanimation files
+        id: check_files
+        run: |
+          # Count bootanimation files
+          count=$(find bootanimations -maxdepth 1 -name "*.zip" -type f 2>/dev/null | wc -l)
+
+          echo "Found $count bootanimation file(s) in bootanimations directory"
+          echo "count=$count" >> $GITHUB_OUTPUT
+
+          if [ "$count" -gt 0 ]; then
+            echo "files_found=true" >> $GITHUB_OUTPUT
+            echo ""
+            echo "Files found:"
+            ls -la bootanimations/*.zip
+          else
+            echo "files_found=false" >> $GITHUB_OUTPUT
+            echo ""
+            echo "⚠️  No bootanimation files found!"
+            echo ""
+            echo "To use this workflow:"
+            echo "1. Add your bootanimation.zip files to the 'bootanimations' folder"
+            echo "2. Commit and push the changes"
+            echo "3. Run this workflow again"
+            echo ""
+            echo "OR provide direct URLs in the workflow inputs."
+            echo ""
+            echo "File naming convention:"
+            echo "  - bootanimation.zip (main boot animation)"
+            echo "  - bootanimation01.zip (alternative 1)"
+            echo "  - bootanimation02.zip (alternative 2)"
+            echo "  - etc."
+            exit 1
+          fi
+
+      - name: Prepare module structure
+        run: |
+          echo "📦 Preparing module structure..."
+
+          # Determine target location (use input or default)
+          TARGET_LOCATION="${{ github.event.inputs.target_location }}"
+          if [ -z "$TARGET_LOCATION" ]; then
+            TARGET_LOCATION="system/product/media"
+          fi
+
+          # Create target directory
+          TARGET_DIR="build/module/$TARGET_LOCATION"
+          mkdir -p "$TARGET_DIR"
+
+          # Clean any existing bootanimation files from the downloaded module
+          find build/module -name "bootanimation*.zip" -type f -delete 2>/dev/null || true
+
+          echo "Target location: $TARGET_LOCATION"
+          echo "target_dir=$TARGET_DIR" >> $GITHUB_ENV
+          echo "target_location=$TARGET_LOCATION" >> $GITHUB_ENV
+
+      - name: Copy bootanimation files
+        run: |
+          echo "📋 Copying bootanimation files..."
+
+          for file in bootanimations/*.zip; do
+            if [ -f "$file" ]; then
+              filename=$(basename "$file")
+              echo "  → $filename"
+              cp "$file" "${{ env.target_dir }}/"
+            fi
+          done
+
+          echo ""
+          echo "Files copied to module:"
+          ls -la "${{ env.target_dir }}/"
+
+      - name: Validate bootanimation files
+        run: |
+          echo "🔍 Validating bootanimation files..."
+          echo ""
+
+          errors=0
+          warnings=0
+
+          for file in "${{ env.target_dir }}"/*.zip; do
+            if [ -f "$file" ]; then
+              filename=$(basename "$file")
+              filesize=$(du -h "$file" | cut -f1)
+
+              echo "Checking: $filename ($filesize)"
+
+              # Validate ZIP integrity
+              if ! unzip -t "$file" > /dev/null 2>&1; then
+                echo "  ❌ Invalid ZIP file!"
+                errors=$((errors + 1))
+                continue
+              fi
+
+              # Check for desc.txt
+              if unzip -l "$file" 2>/dev/null | grep -q "desc.txt"; then
+                echo "  ✅ desc.txt found"
+              else
+                echo "  ⚠️  Warning: desc.txt not found"
+                warnings=$((warnings + 1))
+              fi
+
+              # Check for part0/
+              if unzip -l "$file" 2>/dev/null | grep -q "part0/"; then
+                echo "  ✅ part0/ found"
+              else
+                echo "  ⚠️  Warning: part0/ not found"
+                warnings=$((warnings + 1))
+              fi
+
+              echo ""
+            fi
+          done
+
+          if [ $errors -gt 0 ]; then
+            echo "❌ Validation failed with $errors error(s)"
+            exit 1
+          fi
+
+          if [ $warnings -gt 0 ]; then
+            echo "⚠️  Validation completed with $warnings warning(s)"
+          else
+            echo "✅ All files validated successfully"
+          fi
+
+      - name: Get module info
+        id: module_info
+        run: |
+          PROP_FILE="build/module/module.prop"
+
+          MODULE_ID=$(grep "^id=" "$PROP_FILE" | cut -d= -f2)
+          MODULE_NAME=$(grep "^name=" "$PROP_FILE" | cut -d= -f2)
+          MODULE_VERSION=$(grep "^version=" "$PROP_FILE" | cut -d= -f2)
+          MODULE_AUTHOR=$(grep "^author=" "$PROP_FILE" | cut -d= -f2)
+
+          echo "module_id=$MODULE_ID" >> $GITHUB_OUTPUT
+          echo "module_name=$MODULE_NAME" >> $GITHUB_OUTPUT
+          echo "module_version=$MODULE_VERSION" >> $GITHUB_OUTPUT
+          echo "module_author=$MODULE_AUTHOR" >> $GITHUB_OUTPUT
+
+          echo "📝 Module info:"
+          echo "  ID: $MODULE_ID"
+          echo "  Name: $MODULE_NAME"
+          echo "  Version: $MODULE_VERSION"
+          echo "  Author: $MODULE_AUTHOR"
+
+      - name: Create module ZIP
+        id: create_zip
+        run: |
+          cd build/module
+
+          MODULE_ID="${{ steps.module_info.outputs.module_id }}"
+          MODULE_VERSION="${{ steps.module_info.outputs.module_version }}"
+
+          # Create a unique zip name with target location indicator
+          TARGET_SHORT=$(echo "${{ env.target_location }}" | sed 's/system\///g' | tr '/' '-')
+          ZIP_NAME="${MODULE_ID}-${MODULE_VERSION}-${TARGET_SHORT}.zip"
+
+          # Create ZIP with stored (no compression) mode for bootanimation compatibility
+          echo "Creating ZIP with stored (no compression) mode..."
+          zip -r -0 "../$ZIP_NAME" . -x "*.git*"
+
+          # Get zip size
+          ZIP_SIZE=$(du -h "../$ZIP_NAME" | cut -f1)
+
+          echo "zip_name=$ZIP_NAME" >> $GITHUB_OUTPUT
+          echo "zip_size=$ZIP_SIZE" >> $GITHUB_OUTPUT
+
+          echo ""
+          echo "📦 Created: $ZIP_NAME ($ZIP_SIZE)"
+          echo ""
+          echo "ZIP contents:"
+          unzip -l "../$ZIP_NAME"
+
+      - name: Upload module artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ steps.create_zip.outputs.zip_name }}
+          path: build/${{ steps.create_zip.outputs.zip_name }}
+          retention-days: 90
+          compression-level: 0
+
+      - name: Generate build summary
+        run: |
+          cat << 'EOF' >> $GITHUB_STEP_SUMMARY
+          # 🎉 Module Built Successfully!
+
+          ## 📦 Module Details
+
+          | Property | Value |
+          |----------|-------|
+          | **File** | `${{ steps.create_zip.outputs.zip_name }}` |
+          | **Size** | ${{ steps.create_zip.outputs.zip_size }} |
+          | **Base Release** | ${{ steps.download_release.outputs.tag }} |
+          | **Name** | ${{ steps.module_info.outputs.module_name }} |
+          | **Version** | ${{ steps.module_info.outputs.module_version }} |
+          | **Author** | ${{ steps.module_info.outputs.module_author }} |
+          | **Target** | `${{ env.target_location }}` |
+
+          ## 📁 Included Bootanimations
+
+          EOF
+
+          for file in "${{ env.target_dir }}"/*.zip; do
+            if [ -f "$file" ]; then
+              filename=$(basename "$file")
+              size=$(du -h "$file" | cut -f1)
+              echo "- \`$filename\` ($size)" >> $GITHUB_STEP_SUMMARY
+            fi
+          done
+
+          cat << 'EOF' >> $GITHUB_STEP_SUMMARY
+
+          ## 📥 Download Instructions
+
+          1. Scroll down to the **Artifacts** section below
+          2. Click on the module ZIP file to download
+          3. The download will be a ZIP containing the module
+
+          ## 📲 Installation
+
+          1. Extract the downloaded artifact (if needed)
+          2. Flash the module ZIP using:
+             - **Magisk Manager** → Modules → Install from storage
+             - **KernelSU** → Module → Install
+             - **APatch** → Module → Install
+          3. Reboot your device
+
+          ## ℹ️ Notes
+
+          - The module will replace the boot animation on your device
+          - A backup of the original animation will be created during installation
+          - You can uninstall the module to restore the original animation
+          EOF
