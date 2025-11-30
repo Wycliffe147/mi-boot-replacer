@@ -93,6 +93,7 @@ detect_boot_dir() {
 select_boot_dir() {
   ui_print "*********************************************"
   ui_print "- Select boot animation location:"
+  ui_print "- Press the following keys to proceed:"
   ui_print "  Volume [+]: Next option"
   ui_print "  Volume [-]: Confirm selection"
   ui_print "*********************************************"
@@ -111,9 +112,9 @@ select_boot_dir() {
   while true; do
     ui_print ""
     case $current_index in
-      0) ui_print "  >> Product Media (Default)"; ui_print "     Path: /product/media" ;;
-      1) ui_print "  >> System Media (Legacy)"; ui_print "     Path: /system/media" ;;
-      2) ui_print "  >> System Ext Media"; ui_print "     Path: /system_ext/media" ;;
+      0) ui_print "- [1/3] Product Media (Default)"; ui_print "  Path: /product/media" ;;
+      1) ui_print "- [2/3] System Media (Legacy)"; ui_print "  Path: /system/media" ;;
+      2) ui_print "- [3/3] System Ext Media"; ui_print "  Path: /system_ext/media" ;;
     esac
 
     key_check
@@ -202,6 +203,31 @@ ui_print "  Brand: $(getprop ro.product.brand)"
 ui_print "  Model: $(getprop ro.product.model)"
 ui_print "  Android: $(getprop ro.build.version.release)"
 ui_print "*********************************************"
+
+# Check for existing module installation and preserve user's theme
+OLD_MODULE_DIR="/data/adb/modules/$MODULE_ID"
+if [ -d "$OLD_MODULE_DIR/system" ]; then
+  ui_print "*********************************************"
+  ui_print "- Existing module installation detected"
+  ui_print "- Do you want to keep your current theme?"
+  ui_print "  Volume [+]: Keep current theme"
+  ui_print "  Volume [-]: Replace with new theme"
+  ui_print "*********************************************"
+  key_check
+  if [[ "$keycheck" == "KEY_VOLUMEUP" ]]; then
+    ui_print "- Preserving your current theme..."
+    # Remove the new module's system directory and copy the old one
+    rm -rf "$MODPATH/system"
+    cp -rf "$OLD_MODULE_DIR/system" "$MODPATH/system"
+    if [ $? -eq 0 ]; then
+      ui_print "- Current theme preserved successfully"
+    else
+      ui_print "! Failed to preserve theme, using new theme instead"
+    fi
+  else
+    ui_print "- Replacing with new theme"
+  fi
+fi
 
 # Auto-detect and let user confirm/change boot animation location
 detect_boot_dir
