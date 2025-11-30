@@ -1,3 +1,18 @@
+## v1.1.3
+
+### Breaking Change
+
+- **Module ID and name have been changed**
+  - Users must manually uninstall the previous version before installing this update
+
+### New Features
+
+- **Theme preservation on update**
+  - Added option to keep your current boot animation theme when updating the module
+  - Automatically detects existing module installation and prompts to preserve or replace theme
+
+---
+
 ## v1.1.2
 
 ### Module Rebranding
