@@ -4,6 +4,8 @@ English | [简体中文](/README_zh-CN.md)
 ## Introduction
 A simple module designed to replace the boot animations with custom ones. This module is also compatible with tablets since, in contrast to phones, tablets frequently modify their animations according to the orientation of the device.
 
+This module utilizes systemless mount to mount the bootanimation files to the specified location, ensuring no modifications are made to the system partition.
+
 ## Requirements
 - Magisk v26.1+ / KernelSU v0.8.0+ / APatch 10568+
 - Android 11+ (API 30+) running MIUI/HyperOS
