@@ -8,6 +8,7 @@ BOOT_DIR="/product/media"
 BOOT_DIR_FROM_MODULE=false
 BACKUP_DIR="/data/adb/boot-backups"
 MODULE_ID=$(grep_prop id "$MODPATH/module.prop")
+MODULE_NAME=$(grep_prop name "$MODPATH/module.prop")
 MODULE_VER_CODE=$(($(grep_prop versionCode "$MODPATH/module.prop") + 0))
 
 # Recovery not recommended
@@ -151,7 +152,7 @@ backup() {
 }
 
 ui_print "*********************************************"
-ui_print "- MiPad Custom Boot Animation"
+ui_print "- $MODULE_NAME"
 ui_print "- By Veutexus (github.com/G0246)"
 ui_print "- ID: $MODULE_ID"
 ui_print "- Version: $MODULE_VER_CODE"
@@ -288,4 +289,8 @@ fi
 ui_print "*********************************************"
 ui_print "- Installation completed!"
 ui_print "- Reboot to see new animations"
+ui_print ""
+ui_print "! If you don't see any changes after reboot:"
+ui_print "  You may have selected the wrong path"
+ui_print "  Try reinstalling and select a different location"
 ui_print "*********************************************"
