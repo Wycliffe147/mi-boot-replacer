@@ -13,7 +13,7 @@ This module utilizes systemless mount to mount the bootanimation files to the sp
 > [!WARNING]
 > This module is designed for Magisk. KernelSU and APatch are not fully supported and unexpected bugs may occur.
 > 
-> This module may also work on other phone brands with simillar file structures, feel free to test it yourself but no support will be provided and functionality is not guaranteed.
+> This module may also work on other phone brands with similar file structures, feel free to test it yourself but no support will be provided and functionality is not guaranteed.
 
 ## Tested Devices
 
