@@ -231,7 +231,8 @@ To restore your original boot animation:
 
 ## To-Dos
 1. ~~Add GitHub Actions workflow for automated module building~~ (Done)
-2. Auto detect and select path for corresponding models
+2. ~~Auto detect and select path for corresponding models~~ (Probably not as device spoofer modules are commonly used)
+3. Video to boot
 
 ## GitHub Actions (Build Your Own Module)
 
